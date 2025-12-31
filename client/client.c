@@ -8,7 +8,7 @@
 #include "client.h"
 #include "../game.h"
 
-#define SERVER_PORT 9999
+#define SERVER_PORT 9998
 void show_menu() {
     printf("\n=== SNAKE GAME ===\n");
     printf("1. Nova hra\n");
@@ -73,7 +73,6 @@ void join_game() {
         perror("socket");
         return;
     }
-    printf("socket vytvoreny\n");
     // 2. nastav adresu servera
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -90,9 +89,9 @@ void join_game() {
     printf("Pripojeny k hre na porte %d\n", SERVER_PORT);
 
     // 4. posli spravu serveru
-    strcpy(buffer, "HELLO FROM CLIENT\n");
+    //strcpy(buffer, "HELLO FROM CLIENT\n");
     //write(clientSocket, buffer, strlen(buffer));
-    printf("poslal spravu serveru\n");
+    //printf("poslal spravu serveru\n");
     // 5. precitaj odpoved
     n = recv(clientSocket, buffer, sizeof(buffer) - 1,0);
     if (n > 0) {
