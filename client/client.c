@@ -102,6 +102,13 @@ void join_game() {
     close(clientSocket);
 }
 
+void run_game(){
+  while (1) {
+    sleep(2);
+    printf("Hra Bezi\n");
+  }
+}
+
 int main() {
     int choice;
 
@@ -120,6 +127,7 @@ int main() {
             case 2:
                 printf("Pripojenie k hre\n");
                 join_game();
+                run_game();
                 break;
             case 3:
                 printf("Koniec\n");
