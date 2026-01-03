@@ -23,9 +23,9 @@ typedef struct {
 } game_state_t;
 
 typedef struct {
-  int active_players;
   time_t last_player_left;
   pthread_mutex_t players_mutex;
+  pthread_mutex_t clients_mutex;
   int isRunning;
 
   game_config_t *game;
@@ -33,7 +33,7 @@ typedef struct {
 } SHARED_DATA;
 
 typedef struct {
-  int client_fd;
+  int client_fd[MAX_PLAYERS];
   SHARED_DATA *shared;
 } client_thread_arg_t ;
 
