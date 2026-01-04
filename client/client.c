@@ -93,7 +93,12 @@ int join_game() {
 
 void draw_map(game_state_t* state) {
   system("clear");
+  for (int i = 0; i < MAP_W + 2; i++){
+    printf("-");
+  }
+  printf("\n");
   for (int i = 0; i < MAP_H; i++) {
+    printf("|");
     for (int j = 0;j < MAP_W; j++) {
       char c = ' ';
 
@@ -111,8 +116,12 @@ void draw_map(game_state_t* state) {
       }
       printf("%c",c);
     }
-    printf("\n");
+    printf("|\n");
   }
+  for (int i = 0; i < MAP_W + 2; i++) {
+    printf("-");
+  }
+  printf("\n");
   printf("%c",state->snakes[0].direction);
   printf("%d:%d\n",state->snakes[0].body->x, state->snakes[0].body->y);
   printf("%d:%d\n",state->fruit[0].x,state->fruit->y);

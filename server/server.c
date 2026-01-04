@@ -28,10 +28,9 @@ void * client_loop(void* arg){
     if ( n > 0) {
       if (key == 27) {
         printf("Pauza\n");
-      }else if (key != 'w' && key != 'a' && key != 's' && key != 'd'){
+      } else if (key != 'w' && key != 'a' && key != 's' && key != 'd'){
         continue;
-      }
-      pthread_mutex_lock(&data->shared->players_mutex);
+      }      pthread_mutex_lock(&data->shared->players_mutex);
       data->shared->game_state.snakes[0].direction = key;
       pthread_mutex_unlock(&data->shared->players_mutex);
 
@@ -70,7 +69,7 @@ void * game_loop(void* arg) {
     pthread_mutex_lock(&data->shared->clients_mutex);
     update_snakes(data->shared);
     generate_fruit(data->shared);
-    
+    detect_collisions(data->shared);
     if (data->client_fd > 0 && data->shared->game_state.active_players>0) {
       send(*data->client_fd, &data->shared->game_state, sizeof(game_state_t), 0); 
     }
@@ -203,18 +202,6 @@ void update_snakes(SHARED_DATA *data) {
         break;
         
     }
-    if (head->x < 0) {
-      head->x = MAP_W -1;
-    }
-    if (head->x >= MAP_W) {
-      head->x = 0;
-    }
-    if (head->y < 0) {
-      head->y = MAP_H -1;
-    }
-    if (head->y >= MAP_H) {
-      head->y = 0;
-    }
   }
 }
 
@@ -281,3 +268,60 @@ void add_player(game_state_t* game) {
   snake->body[2].y = 3;
 }
 
+void detect_collisions(SHARED_DATA *data) {
+    for (int i = 0; i < data->game_state.active_players; i++) {
+        snake_t *s = &data->game_state.snakes[i];
+        if (!s->alive) continue;
+
+        point_t head = s->body[0];
+        // kolizia so stenou
+        if (head.x >= MAP_W) {
+          s->alive = 0;
+          printf("Hrac %d narazil do steny\n",i);
+        }
+        if (head.x < 0) {
+          s->alive = 0;
+          printf("Hrac %d narazil do steny\n",i);
+        }
+        if (head.y >= MAP_H) {
+          s->alive = 0;
+          printf("Hrac %d narazil do steny\n",i);
+        }
+        if (head.y < 0) {
+          s->alive = 0;
+          printf("Hrac %d narazil do steny\n",i);
+        }
+        // kolízia so sebou 
+        for (int j = 1; j < s->length; j++) {
+            if (head.x == s->body[j].x &&
+                head.y == s->body[j].y) {
+                s->alive = 0;
+                printf("Hrac %d narazil do seba\n", i);
+            }
+        }
+
+        // kolízia s iným hadom
+        for (int k = 0; k < data->game_state.active_players; k++) {
+            if (k == i) continue;
+
+            snake_t *other = &data->game_state.snakes[k];
+            if (!other->alive) continue;
+
+            for (int j = 0; j < other->length; j++) {
+                if (head.x == other->body[j].x &&
+                    head.y == other->body[j].y) {
+                    s->alive = 0;
+                    printf("Hrac %d narazil do hraca %d\n", i, k);
+                }
+            }
+        }
+
+        // kolízia s ovocím
+        point_t *f = &data->game_state.fruit[i];
+        if (head.x == f->x && head.y == f->y) {
+            s->length++;
+            f->x = -1; // znovu vygeneruj
+            printf("Hrac %d zjedol ovocie\n", i);
+        }
+    }
+}
