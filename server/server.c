@@ -9,8 +9,6 @@
 #include <arpa/inet.h>
 #include "server.h"
 
-#define MAP_W 20
-#define MAP_H 10
 #define MAX_PLAYERS 4
 #define PORT 9998
 #define BUF_SIZE 256
@@ -19,10 +17,10 @@ void * client_loop(void* arg){
   client_thread_arg_t* data = (client_thread_arg_t*)arg;
  // SHARED_DATA *shared = data->shared;
     //printf("arg CLIENT: %p\n", data);
- 
-  int client_fd = data->client_fd[data->shared->game_state.active_players-1];
+  int player_id = data->shared->game_state.active_players-1;
+  int client_fd = data->client_fd[player_id];
   char key;
- while (data->shared->game_state.snakes[data->shared->game_state.active_players-1].alive) {
+ while (data->shared->game_state.snakes[player_id].alive) {
   int n;
     n = recv(client_fd, &key, 1, 0);
     if ( n > 0) {
@@ -31,7 +29,7 @@ void * client_loop(void* arg){
       } else if (key != 'w' && key != 'a' && key != 's' && key != 'd'){
         continue;
       }      pthread_mutex_lock(&data->shared->players_mutex);
-      data->shared->game_state.snakes[0].direction = key;
+      data->shared->game_state.snakes[player_id].direction = key;
       pthread_mutex_unlock(&data->shared->players_mutex);
 
     }
@@ -70,8 +68,11 @@ void * game_loop(void* arg) {
     update_snakes(data->shared);
     generate_fruit(data->shared);
     detect_collisions(data->shared);
-    if (data->client_fd > 0 && data->shared->game_state.active_players>0) {
-      send(*data->client_fd, &data->shared->game_state, sizeof(game_state_t), 0); 
+    for (int i = 0; i < data->shared->game_state.active_players; i++) {
+      if (data->client_fd[i] > 0 && data->shared->game_state.active_players > 0) {
+        send(data->client_fd[i], &data->shared->game_state, sizeof(game_state_t), 0); 
+      }
+
     }
     pthread_mutex_unlock(&data->shared->clients_mutex);
     pthread_mutex_unlock(&data->shared->players_mutex);
@@ -275,21 +276,26 @@ void detect_collisions(SHARED_DATA *data) {
 
         point_t head = s->body[0];
         // kolizia so stenou
-        if (head.x >= MAP_W) {
+        
+         if (head.x >= MAP_W) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
+          data->game_state.active_players--;
         }
         if (head.x < 0) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
+          data->game_state.active_players--;
         }
         if (head.y >= MAP_H) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
+          data->game_state.active_players--;
         }
         if (head.y < 0) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
+          data->game_state.active_players--;
         }
         // kolízia so sebou 
         for (int j = 1; j < s->length; j++) {
@@ -297,6 +303,7 @@ void detect_collisions(SHARED_DATA *data) {
                 head.y == s->body[j].y) {
                 s->alive = 0;
                 printf("Hrac %d narazil do seba\n", i);
+                data->game_state.active_players--;
             }
         }
 
@@ -312,6 +319,8 @@ void detect_collisions(SHARED_DATA *data) {
                     head.y == other->body[j].y) {
                     s->alive = 0;
                     printf("Hrac %d narazil do hraca %d\n", i, k);
+                    data->game_state.active_players--;
+                    
                 }
             }
         }

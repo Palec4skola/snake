@@ -1,6 +1,6 @@
 #include <pthread.h>
 #include "../game.h"
-#define MAP_W 20
+#define MAP_W 30
 #define MAP_H 10
 #define MAX_PLAYERS 4
 

@@ -122,9 +122,6 @@ void draw_map(game_state_t* state) {
     printf("-");
   }
   printf("\n");
-  printf("%c",state->snakes[0].direction);
-  printf("%d:%d\n",state->snakes[0].body->x, state->snakes[0].body->y);
-  printf("%d:%d\n",state->fruit[0].x,state->fruit->y);
 }
 void* recv_loop(void* arg) {
   int fd = *(int*)arg;
@@ -134,8 +131,12 @@ void* recv_loop(void* arg) {
       printf("Chyba pri recv\n");
       break;
     }
-    printf("Hlava hada: %d:%d\n",state.snakes[0].body[0].x,state.snakes[0].body[0].x);
-    draw_map(&state);
+    if (state.active_players == 0) {
+      printf("Nie je zivi ziadny hradik, hra konci\n");
+      exit(0);
+    } else {
+      draw_map(&state);
+    }
   }
   free(arg);
   return NULL;
@@ -150,7 +151,6 @@ void run_game(int client_fd){
   while (1) {
     usleep(200000);
     char key = getchar();
-    printf("Zadajte smer: ");
     send(*fd,&key,1,0);
   }
 }
