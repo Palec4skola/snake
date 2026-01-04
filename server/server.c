@@ -20,41 +20,39 @@ void * client_loop(void* arg){
  // SHARED_DATA *shared = data->shared;
     //printf("arg CLIENT: %p\n", data);
  
-  int client_fd = data->client_fd[data->shared->game_state.active_players];
+  int client_fd = data->client_fd[data->shared->game_state.active_players-1];
+  char key;
+ while (data->shared->game_state.snakes[data->shared->game_state.active_players-1].alive) {
+  int n;
+    n = recv(client_fd, &key, 1, 0);
+    if ( n > 0) {
+      if (key == 27) {
+        printf("Pauza\n");
+      }else if (key != 'w' && key != 'a' && key != 's' && key != 'd'){
+        continue;
+      }
+      pthread_mutex_lock(&data->shared->players_mutex);
+      data->shared->game_state.snakes[0].direction = key;
+      pthread_mutex_unlock(&data->shared->players_mutex);
 
-  pthread_mutex_lock(&data->shared->players_mutex);
-  data->shared->game_state.active_players++;
-  printf("%p\n",&data->shared->game_state);
-  init_game_state(data->shared);
-  printf("Klient pripojeny (fd=%d)\n",client_fd);
-  pthread_mutex_unlock(&data->shared->players_mutex);
-
-  while (1) {
-    pthread_mutex_lock(&data->shared->players_mutex);
-    pthread_mutex_lock(&data->shared->clients_mutex);
-    if (data->client_fd > 0) {
-      printf("Server posiela game state clientovi hlava hada je  %d:%d\n",data->shared->game_state.snakes[0].body[0].x,data->shared->game_state.snakes[0].body[0].y);
-      printf("Ovocie je: %d:%d\n",data->shared->game_state.fruit[0].x,data->shared->game_state.fruit[0].y);
-      send(client_fd, &data->shared->game_state, sizeof(game_state_t), 0); 
     }
-    pthread_mutex_unlock(&data->shared->clients_mutex);
-    pthread_mutex_unlock(&data->shared->players_mutex);
-    sleep(1);
-  }
+        usleep(200000);
+    }
+
   return NULL;
 }
 
 void * game_loop(void* arg) {
-  SHARED_DATA* data = (SHARED_DATA*)arg;
+  client_thread_arg_t* data = (client_thread_arg_t*)arg;
   time_t game_start = time(NULL);
 
-  while(data->isRunning) {
-    pthread_mutex_lock(&data->players_mutex);
-    int players = data->game_state.active_players;
-    time_t last_left = data->last_player_left;
-    game_mode_t mode = data->game->mode;
-    int limit = data->game->time_limit;
-    pthread_mutex_unlock(&data->players_mutex);
+  while(data->shared->isRunning) {
+    pthread_mutex_lock(&data->shared->players_mutex);
+    int players = data->shared->game_state.active_players;
+    time_t last_left = data->shared->last_player_left;
+    game_mode_t mode = data->shared->game->mode;
+    int limit = data->shared->game->time_limit;
+    pthread_mutex_unlock(&data->shared->players_mutex);
 
     if (mode == GAME_TIMED) {
       if (time(NULL) - game_start >= limit) {
@@ -68,32 +66,21 @@ void * game_loop(void* arg) {
         exit(0);
       }
     }
-
-    update_snakes(data);
-    generate_fruit(data);
-    sleep(1);
-  }
-  data->isRunning = 0;
-  return NULL;
-}
-
-void* recv_loop(void* arg) {
-  client_thread_arg_t* data = (client_thread_arg_t*)arg;
-  int client_fd;// = data->client_fd;
-  free(arg);
-
-  //int player_id = find_player_id();
-
-  char direction;
-  while (1) {
-        int bytes = recv(client_fd, &direction, 1, 0);
-        if (bytes <= 0) break;
-        
-        pthread_mutex_lock(&data->shared->players_mutex);
-    //    data->shared->game_state.snakes[player_id]->direction = direction;
-        pthread_mutex_unlock(&data->shared->players_mutex);
+    pthread_mutex_lock(&data->shared->players_mutex);
+    pthread_mutex_lock(&data->shared->clients_mutex);
+    update_snakes(data->shared);
+    generate_fruit(data->shared);
+    
+    if (data->client_fd > 0 && data->shared->game_state.active_players>0) {
+      send(*data->client_fd, &data->shared->game_state, sizeof(game_state_t), 0); 
     }
+    pthread_mutex_unlock(&data->shared->clients_mutex);
+    pthread_mutex_unlock(&data->shared->players_mutex);
 
+    usleep(200000);
+  }
+  data->shared->isRunning = 0;
+  return NULL;
 }
 
 int main(int argc, char * argv[]) {
@@ -135,16 +122,17 @@ int main(int argc, char * argv[]) {
 
   SHARED_DATA *data;
   data = malloc(sizeof(SHARED_DATA)); 
-  client_thread_arg_t *arg;
+  client_thread_arg_t *arg; 
   arg = malloc(sizeof(client_thread_arg_t));
 
   data->game_state.active_players = 0;
   data->last_player_left = 0;
   data->isRunning =1;
+  arg->shared = data;
   pthread_mutex_init(&data->players_mutex, NULL);
   pthread_mutex_init(&data->clients_mutex, NULL);
   data->game = &game;
-  pthread_create(&game_thread, NULL, game_loop, data);
+  pthread_create(&game_thread, NULL, game_loop, arg);
   pthread_detach(game_thread);  
 
   printf("Server spusteny na porte %d\n", PORT);
@@ -157,7 +145,8 @@ int main(int argc, char * argv[]) {
 
   
   while (data->isRunning) {
-    sleep(1);
+    printf("Caka na klienta\n");
+    usleep(200000);
     pthread_t client_thread;
     
   int newSocket;//caka, kym sa pripoji klient
@@ -170,13 +159,13 @@ int main(int argc, char * argv[]) {
     }
     pthread_mutex_lock(&data->players_mutex);
     arg->client_fd[data->game_state.active_players] = newSocket;
-    arg->shared = data;
-    pthread_mutex_unlock(&data->players_mutex);
     if(arg->client_fd[data->game_state.active_players] < 0) {
       perror("accept");
       free(arg);
       continue;
     }
+    add_player(&arg->shared->game_state);
+    pthread_mutex_unlock(&data->players_mutex);
     pthread_create(&client_thread, NULL, client_loop, arg);
     pthread_detach(client_thread);
     //free(arg);
@@ -188,9 +177,7 @@ int main(int argc, char * argv[]) {
 }
 
 void update_snakes(SHARED_DATA *data) {
-  printf("Update snake\n");
-
-  printf("Aktivni hraci: %d\n",data->game_state.active_players);
+  
   for (int i = 0; i < data->game_state.active_players ; i++) {
     snake_t *snake = &data->game_state.snakes[i];
 
@@ -201,8 +188,7 @@ void update_snakes(SHARED_DATA *data) {
       snake->body[j] = snake->body[j-1];
     }
     point_t *head = &snake->body[0];
-
-    switch (snake->direction) {
+    switch (snake[0].direction) {
       case 'w':
         head->y--;
         break;
@@ -215,6 +201,7 @@ void update_snakes(SHARED_DATA *data) {
       case 'd':
         head->x++;
         break;
+        
     }
     if (head->x < 0) {
       head->x = MAP_W -1;
@@ -263,34 +250,34 @@ void generate_fruit(SHARED_DATA * data) {
     fruit->x = x;
     fruit->y = y;
   }
-    printf("Ovocko\n");
 }
 
 void init_game_state(SHARED_DATA* data) {
   game_state_t * game = &data->game_state;
 
   memset(game->map, ' ', sizeof(game->map));
+}
 
-    snake_t * snake = &game->snakes[game->active_players-1];
+void add_player(game_state_t* game) {
+  game->active_players++;
+  game->fruit[game->active_players-1].x = rand() % MAP_W;
+  game->fruit[game->active_players-1].y = rand() % MAP_H;
+  
+  snake_t * snake = &game->snakes[game->active_players-1];
+  snake->alive = 1;
+  snake->length = 3;
+  snake->direction = 'd';
 
-    snake->length = 3;
-    snake->alive++;
-    snake->direction = 'd';
-
-    for (int j = 0; j < 100; j++) {
+  for (int j = 0; j < 100; j++) {
       snake->body[j].x = -1;
       snake->body[j].y = -1;
     }
-    game->fruit->x = -1;
-    game->fruit->y = -1;
-    snake->body[0].x = 3;
-    snake->body[0].y = 3; 
-    snake->body[1].x = 2;
-    snake->body[1].y = 3;
-    snake->body[2].x = 1;  
-    snake->body[2].y = 3;
-  printf("Had sa inicializoval\n");
-  printf("%p\n",&data->game_state);
-  
+
+  snake->body[0].x = 3;
+  snake->body[0].y = 3;
+  snake->body[1].x = 2;
+  snake->body[1].y = 3;
+  snake->body[2].x = 1;
+  snake->body[2].y = 3;
 }
 

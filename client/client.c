@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include "client.h"
 #include "../game.h"
 #include "../server/server.h"
@@ -112,6 +113,7 @@ void draw_map(game_state_t* state) {
     }
     printf("\n");
   }
+  printf("%c",state->snakes[0].direction);
   printf("%d:%d\n",state->snakes[0].body->x, state->snakes[0].body->y);
   printf("%d:%d\n",state->fruit[0].x,state->fruit->y);
 }
@@ -137,9 +139,10 @@ void run_game(int client_fd){
   pthread_create(&recv_thread, NULL, recv_loop, fd);
 
   while (1) {
-    sleep(1);
+    usleep(200000);
     char key = getchar();
-    send(client_fd,&key,1,0);
+    printf("Zadajte smer: ");
+    send(*fd,&key,1,0);
   }
 }
 
