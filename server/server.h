@@ -44,3 +44,5 @@ void update_snakes(SHARED_DATA* data);
 int is_occupied(SHARED_DATA* data, int x, int y);
 
 void generate_fruit(SHARED_DATA* data);
+
+int find_player_id(client_thread_arg_t* arg);

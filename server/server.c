@@ -34,6 +34,7 @@ void * client_loop(void* arg){
     pthread_mutex_lock(&data->shared->clients_mutex);
     if (data->client_fd > 0) {
       printf("Server posiela game state clientovi hlava hada je  %d:%d\n",data->shared->game_state.snakes[0].body[0].x,data->shared->game_state.snakes[0].body[0].y);
+      printf("Ovocie je: %d:%d\n",data->shared->game_state.fruit[0].x,data->shared->game_state.fruit[0].y);
       send(client_fd, &data->shared->game_state, sizeof(game_state_t), 0); 
     }
     pthread_mutex_unlock(&data->shared->clients_mutex);
@@ -96,6 +97,7 @@ void* recv_loop(void* arg) {
 }
 
 int main(int argc, char * argv[]) {
+  srand(time(NULL));
   int server_fd;
   struct sockaddr_in addr;
   //socklen_t addrlen = sizeof(addr);

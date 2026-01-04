@@ -91,24 +91,21 @@ int join_game() {
 }
 
 void draw_map(game_state_t* state) {
-  //system("clear");
-  printf("Kreslenie mapy aktivny hraci: %d\n",state->active_players);
-  printf("%d:%d\n",state->snakes[0].body->x, state->snakes[0].body->y);
+  system("clear");
   for (int i = 0; i < MAP_H; i++) {
-    printf("");
     for (int j = 0;j < MAP_W; j++) {
       char c = ' ';
 
-      for (int k = 0; k < state->active_players;i++) {
+      for (int k = 0; k < state->active_players;k++) {
         for (int l = 0;l < state->snakes[k].length;l++) {
-          if (state->snakes[k].body->x==j && state->snakes[k].body->y == i) {
-         c = (i==0)?'O':'o'; 
+          if (state->snakes[k].body[l].x==j && state->snakes[k].body[l].y == i) {
+         c = (l==0)?'O':'o'; 
           }
         }
       }
 
 
-      if (state->fruit->x == j && state->fruit->y ==1) {
+      if (state->fruit[0].x == j && state->fruit[0].y ==i) {
         c = '*';
       }
       printf("%c",c);
@@ -116,6 +113,7 @@ void draw_map(game_state_t* state) {
     printf("\n");
   }
   printf("%d:%d\n",state->snakes[0].body->x, state->snakes[0].body->y);
+  printf("%d:%d\n",state->fruit[0].x,state->fruit->y);
 }
 void* recv_loop(void* arg) {
   int fd = *(int*)arg;
