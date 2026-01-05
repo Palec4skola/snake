@@ -1,15 +1,19 @@
 #ifndef GAME_H
 #define GAME_H
 
-typedef enum {
-    GAME_STANDARD = 1,
-    GAME_TIMED = 2
-} game_mode_t;
+#include "shared.h"
 
-typedef struct {
-    game_mode_t mode;
-    int time_limit;   // len pre GAME_TIMED (v sekundách)
-} game_config_t;
+void update_snakes(SHARED_DATA *data);
+
+int is_occupied(SHARED_DATA *data, int x, int y);
+
+void generate_fruit(SHARED_DATA * data);
+
+void init_game_state(SHARED_DATA* data);
+
+void add_player(game_state_t* game);
+
+void detect_collisions(SHARED_DATA *data);
 
 #endif
 

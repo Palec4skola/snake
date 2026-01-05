@@ -1,12 +1,12 @@
-all: client_app server_app
+all: client_out server_out
 
-client_app:
-	gcc client/client.c -o client_app
+client_out: game.c game.h shared.h
+	gcc client/client.c game.c game.h shared.h -o client_out
 
-server_app:
-	gcc server/server.c -o server_app
-
+server_out: game.c game.h shared.h
+	gcc server/server.c game.c game.h shared.h -o server_out
+	
 clean:
-	rm -f client_app server_app
+	rm -f client_out server_out
 
 

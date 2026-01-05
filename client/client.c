@@ -8,87 +8,85 @@
 #include <unistd.h>
 
 #include "client.h"
-#include "../game.h"
-#include "../server/server.h"
 
 #define SERVER_PORT 9997
 void show_menu() {
-    printf("\n=== SNAKE GAME ===\n");
-    printf("1. Nova hra\n");
-    printf("2. Pripojit sa k hre\n");
-    printf("3. Koniec\n");
-    printf("Vyber: ");
+  printf("\n=== SNAKE GAME ===\n");
+  printf("1. Nova hra\n");
+  printf("2. Pripojit sa k hre\n");
+  printf("3. Koniec\n");
+  printf("Vyber: ");
 }
 
 void start_new_game() {
-    game_config_t config;
-    int mode;
-    printf("Zvol herny rezim:\n");
-    printf("1 - Standardny\n");
-    printf("2 - Casovy:\n");
-    printf("> ");
-    scanf("%d", &mode);
-    config.mode = mode;
+  game_config_t config;
+  int mode;
+  printf("Zvol herny rezim:\n");
+  printf("1 - Standardny\n");
+  printf("2 - Casovy:\n");
+  printf("> ");
+  scanf("%d", &mode);
+  config.mode = mode;
 
-    if (config.mode == GAME_TIMED) {
-      printf("Zadaj cas hry (sekundy): ");
-      scanf("%d",&config.time_limit);
-    }else {
-      config.time_limit = 0;
+  if (config.mode == GAME_TIMED) {
+    printf("Zadaj cas hry (sekundy): ");
+    scanf("%d",&config.time_limit);
+  }else {
+    config.time_limit = 0;
+  }
+  char mode_str[10];
+  char time_str[10];
+  sprintf(mode_str, "%d", config.mode);
+  sprintf(time_str, "%d", config.time_limit);
+
+  pid_t pid = fork();
+  printf("pid: %d\n",pid);
+
+  if (pid < 0) {
+    perror("fork");
+    return;
+  }
+
+  if (pid == 0) {
+    if (setsid() < 0) {
+        perror("setsid");
     }
-    char mode_str[10];
-    char time_str[10];
-    sprintf(mode_str, "%d", config.mode);
-    sprintf(time_str, "%d", config.time_limit);
-
-    pid_t pid = fork();
-    printf("pid: %d\n",pid);
-
-    if (pid < 0) {
-        perror("fork");
-        return;
-    }
-
-    if (pid == 0) {
-        if (setsid() < 0) {
-            perror("setsid");
-        }
-        printf("Server sa spusta.\n");
-        execl("./server_app", "server_app", mode_str, time_str, NULL);
-        perror("execl");
-        exit(1);    
-    } 
-    else {
-        printf("Server spusteny (PID=%d) client\n", pid);
-    }
+    printf("Server sa spusta.\n");
+    execl("./server_out", "server_out", mode_str, time_str, NULL);
+    perror("execl");
+    exit(1);    
+  } 
+  else {
+    printf("Server spusteny (PID=%d) client\n", pid);
+  }
 }
 
 int join_game() {
-    int clientSocket;
-    struct sockaddr_in server_addr;
-    printf("priprajanie klienta\n");
+  int clientSocket;
+  struct sockaddr_in server_addr;
+  printf("priprajanie klienta\n");
 
-    // 1. vytvor socket
-    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket < 0) {
-        perror("socket");
-        return -1;
-    }
-    // 2. nastav adresu servera
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    
-    // 3. pripoj sa na server
-    if (connect(clientSocket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("connect");
-        close(clientSocket);
-        return -1;
-    }
-    printf("pripojeny na server\n");
-    printf("Pripojeny k hre na porte %d\n", SERVER_PORT);
-    return clientSocket;
+  // 1. vytvor socket
+  clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+  if (clientSocket < 0) {
+    perror("socket");
+    return -1;
+  }
+  // 2. nastav adresu servera
+  memset(&server_addr, 0, sizeof(server_addr));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(SERVER_PORT);
+  server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  
+  // 3. pripoj sa na server
+  if (connect(clientSocket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    perror("connect");
+    close(clientSocket);
+    return -1;
+  }
+  printf("pripojeny na server\n");
+  printf("Pripojeny k hre na porte %d\n", SERVER_PORT);
+  return clientSocket;
 }
 
 void draw_map(game_state_t* state) {
@@ -122,6 +120,7 @@ void draw_map(game_state_t* state) {
     printf("-");
   }
   printf("\n");
+  printf("Points: %d\n",state->snakes[0].points);
 }
 void* recv_loop(void* arg) {
   client_t* client = (client_t*)arg;
@@ -155,18 +154,18 @@ void* recv_loop(void* arg) {
 }
 
 void run_game(int client_fd){
-  printf("fd1: %d\n",client_fd);
   client_t *client = malloc(sizeof(client_t));
   client->client_fd = client_fd;
   client->game_running = 1;
+
   pthread_mutex_init(&client->mutex,NULL);
   pthread_t recv_thread;
-  printf("fd2: %d\n",client->client_fd);
   pthread_create(&recv_thread, NULL, recv_loop, client);
   pthread_detach(recv_thread);
+
   while (1) {
     pthread_mutex_lock(&client->mutex);
-    int running = client->game_running; 
+    int running = client->game_running;
     pthread_mutex_unlock(&client->mutex);
     
     usleep(20000);
@@ -174,7 +173,16 @@ void run_game(int client_fd){
       break;
     }
     char key = getchar();
-    send(client->client_fd,&key,1,0);
+    send(client_fd,&key,sizeof(key),0);
+    /*if (key == 27) {
+      client_msg_t msg = {MSG_PAUSE};
+      send(client_fd,&msg,sizeof(msg),0);
+      return;
+    }else {
+      client_msg_t msg = {MSG_MOVE, key};
+      send(client->client_fd,&msg,1,0);
+    }*/
+    
   }
   printf("Koniec klienta\n");
   pthread_mutex_destroy(&client->mutex);
@@ -184,41 +192,63 @@ void run_game(int client_fd){
 }
 
 int main() {
-    int choice;
-    int client;
-    while (1) {
-        show_menu();
-        if (scanf("%d", &choice) != 1) {
-            while (getchar() != '\n'); // flush
-            continue;
-        }
-
-        switch (choice) {
-            case 1:
-                printf("Nova hra\n");
-                start_new_game();
-                sleep(1);
-                client = join_game();
-                if (client < 0) {
-                  return 1;
-                }
-                run_game(client);
-                break;
-      case 2:
-                printf("Pripojenie k hre\n");
-                client = join_game();
-                if (client < 0) {
-                  return 1;
-                }
-                run_game(client);
-                break;
-            case 3:
-                printf("Koniec\n");
-                return 0;
-            default:
-                printf("Neplatna volba\n");
-        }
-    close(client);
+  int choice;
+  int client;
+  while (1) {
+    show_menu();
+    if (scanf("%d", &choice) != 1) {
+      while (getchar() != '\n');
+      continue;
     }
+
+    switch (choice) {
+      case 1:
+        printf("Nova hra\n");
+        start_new_game();
+        sleep(1);
+        client = join_game();
+        if (client < 0) {
+          return 1;
+        }
+        run_game(client);
+        show_pause_menu(client);
+      break;
+      case 2:
+        printf("Pripojenie k hre\n");
+        client = join_game();
+        if (client < 0) {
+          return 1;
+        }
+        run_game(client);
+      break;
+      case 3:
+        printf("Koniec\n");
+        return 0;
+      default:
+        printf("Neplatna volba\n");
+    }
+    close(client);
+  }
+}
+
+void show_pause_menu(int client_fd) {
+  while (1) {
+    printf("1. Continue\n");
+    printf("2. Quit\n");
+
+    char c = getchar();
+
+    if (c == '1') {
+      client_msg_t msg = { MSG_RESUME };
+      send(client_fd, &msg, sizeof(msg), 0);
+      run_game(client_fd);
+    }
+    else if (c == '2') {
+      client_msg_t msg = { MSG_QUIT };
+      send(client_fd, &msg, sizeof(msg), 0);
+      close(client_fd);
+      return;
+    }
+  }
 }
 
