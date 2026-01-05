@@ -20,10 +20,10 @@ typedef struct {
     snake_t snakes[MAX_PLAYERS];
     point_t fruit[MAX_PLAYERS];
     int active_players;
+    time_t last_player_left;
 } game_state_t;
 
 typedef struct {
-  time_t last_player_left;
   pthread_mutex_t players_mutex;
   pthread_mutex_t clients_mutex;
   int isRunning;
@@ -33,8 +33,10 @@ typedef struct {
 } SHARED_DATA;
 
 typedef struct {
+  int server_fd;
   int client_fd[MAX_PLAYERS];
   SHARED_DATA *shared;
+  time_t last_player_left;
 } client_thread_arg_t ;
 
 void init_game_state(SHARED_DATA* data);

@@ -10,7 +10,7 @@
 #include "server.h"
 
 #define MAX_PLAYERS 4
-#define PORT 9998
+#define PORT 9997
 #define BUF_SIZE 256
 
 void * client_loop(void* arg){
@@ -20,8 +20,12 @@ void * client_loop(void* arg){
   int player_id = data->shared->game_state.active_players-1;
   int client_fd = data->client_fd[player_id];
   char key;
- while (data->shared->game_state.snakes[player_id].alive) {
-  int n;
+  pthread_mutex_lock(&data->shared->players_mutex);
+  int isAlive = data->shared->game_state.snakes[player_id].alive;
+  int game_runs = data->shared->isRunning;
+  pthread_mutex_unlock(&data->shared->players_mutex);
+  while(isAlive == 1 && game_runs == 1) {
+    int n;
     n = recv(client_fd, &key, 1, 0);
     if ( n > 0) {
       if (key == 27) {
@@ -33,7 +37,12 @@ void * client_loop(void* arg){
       pthread_mutex_unlock(&data->shared->players_mutex);
 
     }
-        usleep(200000);
+    usleep(200000);
+    pthread_mutex_lock(&data->shared->players_mutex);
+    isAlive = data->shared->game_state.snakes[player_id].alive;
+    game_runs = data->shared->isRunning;
+    pthread_mutex_unlock(&data->shared->players_mutex);
+
     }
 
   return NULL;
@@ -46,7 +55,7 @@ void * game_loop(void* arg) {
   while(data->shared->isRunning) {
     pthread_mutex_lock(&data->shared->players_mutex);
     int players = data->shared->game_state.active_players;
-    time_t last_left = data->shared->last_player_left;
+    time_t last_left = data->shared->game_state.last_player_left;
     game_mode_t mode = data->shared->game->mode;
     int limit = data->shared->game->time_limit;
     pthread_mutex_unlock(&data->shared->players_mutex);
@@ -54,13 +63,13 @@ void * game_loop(void* arg) {
     if (mode == GAME_TIMED) {
       if (time(NULL) - game_start >= limit) {
         printf("Cas vyprsal, koncim hru\n");
-        exit(0);
+        break;
       }
     }
     if (mode == GAME_STANDARD) {
       if (players == 0 && last_left != 0 && time(NULL) - last_left >= 10) {
         printf("[GAME] Nikto sa nepripojil 10s, hra konci\n");
-        exit(0);
+        break;
       }
     }
     pthread_mutex_lock(&data->shared->players_mutex);
@@ -79,7 +88,13 @@ void * game_loop(void* arg) {
 
     usleep(200000);
   }
-  data->shared->isRunning = 0;
+  printf("Hra sa skoncila\n");
+  pthread_mutex_lock(&data->shared->players_mutex);
+  data->shared->isRunning=0;
+  pthread_mutex_unlock(&data->shared->players_mutex);
+  printf("Server: %d\n",data->server_fd);
+  shutdown(data->server_fd, SHUT_RDWR);
+  close(data->server_fd);
   return NULL;
 }
 
@@ -126,9 +141,10 @@ int main(int argc, char * argv[]) {
   arg = malloc(sizeof(client_thread_arg_t));
 
   data->game_state.active_players = 0;
-  data->last_player_left = 0;
+  data->game_state.last_player_left = 0;
   data->isRunning =1;
   arg->shared = data;
+  arg->server_fd = server_fd;
   pthread_mutex_init(&data->players_mutex, NULL);
   pthread_mutex_init(&data->clients_mutex, NULL);
   data->game = &game;
@@ -143,15 +159,21 @@ int main(int argc, char * argv[]) {
       printf("Casovy limit: %d sekund\n", game.time_limit);
   }
 
+  int game_runs;
+  pthread_mutex_lock(&data->players_mutex);
+  game_runs = data->isRunning;
+  pthread_mutex_unlock(&data->players_mutex);
   
-  while (data->isRunning) {
-    printf("Caka na klienta\n");
-    usleep(200000);
+  while (game_runs) {
     pthread_t client_thread;
     
-  int newSocket;//caka, kym sa pripoji klient
+    int newSocket;//caka, kym sa pripoji klient
+    printf("Caka na klienta: %d\n",server_fd);
     newSocket = accept(server_fd, (struct sockaddr*)&newAddr,&addrSize);
     printf("%d\n",newSocket);
+    if (newSocket < 0) {
+      break;
+    }
       
     if (!arg) {
       perror("malloc");
@@ -159,16 +181,16 @@ int main(int argc, char * argv[]) {
     }
     pthread_mutex_lock(&data->players_mutex);
     arg->client_fd[data->game_state.active_players] = newSocket;
-    if(arg->client_fd[data->game_state.active_players] < 0) {
-      perror("accept");
-      free(arg);
-      continue;
-    }
+   
     add_player(&arg->shared->game_state);
     pthread_mutex_unlock(&data->players_mutex);
     pthread_create(&client_thread, NULL, client_loop, arg);
     pthread_detach(client_thread);
     //free(arg);
+    pthread_mutex_lock(&data->players_mutex);
+    game_runs = data->isRunning;
+    printf("%d\n",game_runs);
+    pthread_mutex_unlock(&data->players_mutex);
   }
   pthread_mutex_destroy(&data->players_mutex);
   pthread_mutex_destroy(&data->clients_mutex);
@@ -277,25 +299,29 @@ void detect_collisions(SHARED_DATA *data) {
         point_t head = s->body[0];
         // kolizia so stenou
         
-         if (head.x >= MAP_W) {
+        if (head.x >= MAP_W) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
           data->game_state.active_players--;
+          data->game_state.last_player_left = time(NULL);     
         }
         if (head.x < 0) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
           data->game_state.active_players--;
+          data->game_state.last_player_left = time(NULL);
         }
         if (head.y >= MAP_H) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
           data->game_state.active_players--;
+          data->game_state.last_player_left = time(NULL);
         }
         if (head.y < 0) {
           s->alive = 0;
           printf("Hrac %d narazil do steny\n",i);
           data->game_state.active_players--;
+          data->game_state.last_player_left = time(NULL);
         }
         // kolízia so sebou 
         for (int j = 1; j < s->length; j++) {
@@ -304,6 +330,7 @@ void detect_collisions(SHARED_DATA *data) {
                 s->alive = 0;
                 printf("Hrac %d narazil do seba\n", i);
                 data->game_state.active_players--;
+                data->game_state.last_player_left = time(NULL);
             }
         }
 
@@ -320,6 +347,7 @@ void detect_collisions(SHARED_DATA *data) {
                     s->alive = 0;
                     printf("Hrac %d narazil do hraca %d\n", i, k);
                     data->game_state.active_players--;
+                    data->game_state.last_player_left = time(NULL);
                     
                 }
             }

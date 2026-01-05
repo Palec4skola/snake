@@ -11,7 +11,7 @@
 #include "../game.h"
 #include "../server/server.h"
 
-#define SERVER_PORT 9998
+#define SERVER_PORT 9997
 void show_menu() {
     printf("\n=== SNAKE GAME ===\n");
     printf("1. Nova hra\n");
@@ -124,35 +124,63 @@ void draw_map(game_state_t* state) {
   printf("\n");
 }
 void* recv_loop(void* arg) {
-  int fd = *(int*)arg;
+  client_t* client = (client_t*)arg;
+  pthread_mutex_lock(&client->mutex);
+  int client_fd = client->client_fd;
+  pthread_mutex_unlock(&client->mutex);
   game_state_t state;
   while (1) {
-    if (recv(fd,&state,sizeof(game_state_t),0) <= 0 ) {
-      printf("Chyba pri recv\n");
+    int bytes = recv(client_fd, &state, sizeof(game_state_t), 0);
+
+    if (bytes == 0) {
+      printf("Server ukončil spojenie\n");
       break;
     }
+    if (bytes < 0) {
+      perror("recv");
+      break;
+    }
+
     if (state.active_players == 0) {
       printf("Nie je zivi ziadny hradik, hra konci\n");
-      exit(0);
+      break;
     } else {
       draw_map(&state);
     }
   }
-  free(arg);
+  pthread_mutex_lock(&client->mutex);
+  client->game_running = 0;
+  pthread_mutex_unlock(&client->mutex);
   return NULL;
 }
 
 void run_game(int client_fd){
-  int *fd = malloc(sizeof(int));
-  *fd = client_fd;
+  printf("fd1: %d\n",client_fd);
+  client_t *client = malloc(sizeof(client_t));
+  client->client_fd = client_fd;
+  client->game_running = 1;
+  pthread_mutex_init(&client->mutex,NULL);
   pthread_t recv_thread;
-  pthread_create(&recv_thread, NULL, recv_loop, fd);
-
+  printf("fd2: %d\n",client->client_fd);
+  pthread_create(&recv_thread, NULL, recv_loop, client);
+  pthread_detach(recv_thread);
   while (1) {
-    usleep(200000);
+    pthread_mutex_lock(&client->mutex);
+    int running = client->game_running; 
+    pthread_mutex_unlock(&client->mutex);
+    
+    usleep(20000);
+    if (running == 0) {
+      break;
+    }
     char key = getchar();
-    send(*fd,&key,1,0);
+    send(client->client_fd,&key,1,0);
   }
+  printf("Koniec klienta\n");
+  pthread_mutex_destroy(&client->mutex);
+  free(client);
+  close(client_fd);
+  exit(0);
 }
 
 int main() {
@@ -169,7 +197,12 @@ int main() {
             case 1:
                 printf("Nova hra\n");
                 start_new_game();
-              
+                sleep(1);
+                client = join_game();
+                if (client < 0) {
+                  return 1;
+                }
+                run_game(client);
                 break;
       case 2:
                 printf("Pripojenie k hre\n");
