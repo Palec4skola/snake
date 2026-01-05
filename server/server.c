@@ -44,6 +44,8 @@ int main(int argc, char * argv[]) {
 
   game.mode = atoi(argv[1]);
   game.time_limit = atoi(argv[2]);
+  game.mode_obs = atoi(argv[3]);
+  printf("obs_mode: %d\n",game.mode_obs);
 
   SHARED_DATA *data;
   data = malloc(sizeof(SHARED_DATA)); 
@@ -99,7 +101,6 @@ int main(int argc, char * argv[]) {
     //free(arg);
     pthread_mutex_lock(&data->players_mutex);
     game_runs = data->isRunning;
-    printf("%d\n",game_runs);
     pthread_mutex_unlock(&data->players_mutex);
   }
   pthread_mutex_destroy(&data->players_mutex);
@@ -151,7 +152,7 @@ void * game_loop(void* arg) {
     pthread_mutex_lock(&data->shared->players_mutex);
     int players = data->shared->game_state.active_players;
     time_t last_left = data->shared->game_state.last_player_left;
-    game_mode_t mode = data->shared->game->mode;
+    game_time_mode_t mode = data->shared->game->mode;
     int limit = data->shared->game->time_limit;
     pthread_mutex_unlock(&data->shared->players_mutex);
 
@@ -169,11 +170,11 @@ void * game_loop(void* arg) {
     }
     pthread_mutex_lock(&data->shared->players_mutex);
     pthread_mutex_lock(&data->shared->clients_mutex);
+    detect_collisions(data->shared);
     if (data->shared->game_state.snakes->state == PLAYER_ACTIVE) {
       update_snakes(data->shared);
     } 
     generate_fruit(data->shared);
-    detect_collisions(data->shared);
     for (int i = 0; i < data->shared->game_state.active_players; i++) {
       if (data->client_fd[i] > 0 && data->shared->game_state.active_players > 0) {
         send(data->client_fd[i], &data->shared->game_state, sizeof(game_state_t), 0); 
@@ -189,7 +190,6 @@ void * game_loop(void* arg) {
   pthread_mutex_lock(&data->shared->players_mutex);
   data->shared->isRunning=0;
   pthread_mutex_unlock(&data->shared->players_mutex);
-  printf("Server: %d\n",data->server_fd);
   shutdown(data->server_fd, SHUT_RDWR);
   close(data->server_fd);
   return NULL;

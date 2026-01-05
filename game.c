@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-void update_snakes(SHARED_DATA *data) {
-  
+void update_snakes(SHARED_DATA *data) { 
   for (int i = 0; i < data->game_state.active_players ; i++) {
     snake_t *snake = &data->game_state.snakes[i];
 
@@ -78,15 +77,16 @@ void add_player(game_state_t* game) {
   game->fruit[game->active_players-1].y = rand() % MAP_H;
   
   snake_t * snake = &game->snakes[game->active_players-1];
+  snake->time_start = time(NULL);
   snake->points = 0;
   snake->alive = 1;
   snake->length = 3;
   snake->direction = 'd';
 
   for (int j = 0; j < 100; j++) {
-    snake->body[j].x = -1;
-    snake->body[j].y = -1;
-  }
+      snake->body[j].x = -1;
+      snake->body[j].y = -1;
+    }
 
   snake->body[0].x = 3;
   snake->body[0].y = 3;
@@ -101,39 +101,36 @@ void detect_collisions(SHARED_DATA *data) {
     snake_t *s = &data->game_state.snakes[i];
     if (!s->alive) continue;
 
-    point_t head = s->body[0];
+    point_t* head = &s->body[0];
     // kolizia so stenou
-    
-    if (head.x >= MAP_W) {
-      s->alive = 0;
-      printf("Hrac %d narazil do steny\n",i);
-      data->game_state.active_players--;
-      data->game_state.last_player_left = time(NULL);     
-    }
-    if (head.x < 0) {
-      s->alive = 0;
-      printf("Hrac %d narazil do steny\n",i);
-      data->game_state.active_players--;
-      data->game_state.last_player_left = time(NULL);
-    }
-    if (head.y >= MAP_H) {
-      s->alive = 0;
-      printf("Hrac %d narazil do steny\n",i);
-      data->game_state.active_players--;
-      data->game_state.last_player_left = time(NULL);
-    }
-    if (head.y < 0) {
-      s->alive = 0;
-      printf("Hrac %d narazil do steny\n",i);
-      data->game_state.active_players--;
-      data->game_state.last_player_left = time(NULL);
-    }
-    // kolízia so sebou 
-    for (int j = 1; j < s->length; j++) {
-      if (head.x == s->body[j].x &&
-        head.y == s->body[j].y) {
+    if(data->game->mode_obs == 1) {
+      if (head->x >= MAP_W||head->x < 0||head->y >= MAP_H||head->y < 0) {
         s->alive = 0;
-        printf("Hrac %d narazil do seba\n", i);
+        printf("Hrac narazil do steny\n");
+        data->game_state.active_players--;
+        data->game_state.last_player_left = time(NULL);
+      }
+
+    } else if (data->game->mode_obs == 2) {
+        if (head->x < 0) {
+          head->x = MAP_W - 1;
+        }
+        if (head->x >= MAP_W) {
+          head->x = 0;
+        }
+        if (head->y < 0) {
+          head->y = MAP_H - 1;
+        }
+        if (head->y >= MAP_H) {
+          head->y = 0;
+        }
+    }
+        // kolízia so sebou 
+    for (int j = 1; j < s->length; j++) {
+      if (head->x == s->body[j].x &&
+        head->y == s->body[j].y) {
+        s->alive = 0;
+        printf("Hrac narazil do seba\n");
         data->game_state.active_players--;
         data->game_state.last_player_left = time(NULL);
       }
@@ -147,10 +144,10 @@ void detect_collisions(SHARED_DATA *data) {
       if (!other->alive) continue;
 
       for (int j = 0; j < other->length; j++) {
-        if (head.x == other->body[j].x &&
-            head.y == other->body[j].y) {
+        if (head->x == other->body[j].x &&
+            head->y == other->body[j].y) {
             s->alive = 0;
-            printf("Hrac %d narazil do hraca %d\n", i, k);
+            printf("Hrac narazil do hraca\n");
             data->game_state.active_players--;
             data->game_state.last_player_left = time(NULL); 
         }
@@ -159,11 +156,11 @@ void detect_collisions(SHARED_DATA *data) {
 
     // kolízia s ovocím
     point_t *f = &data->game_state.fruit[i];
-    if (head.x == f->x && head.y == f->y) {
+    if (head->x == f->x && head->y == f->y) {
         s->length++;
         f->x = -1; // znovu vygeneruj
         s->points++;
-        printf("Hrac %d zjedol ovocie\n", i);
+        printf("Hrac zjedol ovocie\n");
     }
   }
 }

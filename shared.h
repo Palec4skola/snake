@@ -11,10 +11,11 @@
 typedef enum {
   GAME_STANDARD = 1,
   GAME_TIMED = 2
-} game_mode_t;
+} game_time_mode_t;
 
 typedef struct {
-  game_mode_t mode;
+  game_time_mode_t mode;
+  int mode_obs;
   int time_limit; 
 } game_config_t;
 
@@ -34,6 +35,7 @@ typedef struct {
   char direction; 
   int alive;
   player_state_t state;
+  time_t time_start; 
   int points;
 } snake_t;
 

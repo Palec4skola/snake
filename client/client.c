@@ -20,13 +20,20 @@ void show_menu() {
 
 void start_new_game() {
   game_config_t config;
-  int mode;
+  int mode_time;
+  int mode_obs;
   printf("Zvol herny rezim:\n");
   printf("1 - Standardny\n");
   printf("2 - Casovy:\n");
   printf("> ");
-  scanf("%d", &mode);
-  config.mode = mode;
+  scanf("%d", &mode_time);
+  printf("\nZvol rezim s/bez prekazok\n");
+  printf("1 - S prekazkami\n");
+  printf("2 - Bez prekazok\n");
+  printf("> ");
+  scanf("%d",&mode_obs);
+  config.mode_obs = mode_obs;
+  config.mode = mode_time;
 
   if (config.mode == GAME_TIMED) {
     printf("Zadaj cas hry (sekundy): ");
@@ -36,9 +43,10 @@ void start_new_game() {
   }
   char mode_str[10];
   char time_str[10];
+  char mode_obs_str[10];
   sprintf(mode_str, "%d", config.mode);
   sprintf(time_str, "%d", config.time_limit);
-
+  sprintf(mode_obs_str, "%d", config.mode_obs);
   pid_t pid = fork();
   printf("pid: %d\n",pid);
 
@@ -52,7 +60,7 @@ void start_new_game() {
         perror("setsid");
     }
     printf("Server sa spusta.\n");
-    execl("./server_out", "server_out", mode_str, time_str, NULL);
+    execl("./server_out", "server_out", mode_str, time_str, mode_obs_str, NULL);
     perror("execl");
     exit(1);    
   } 
@@ -121,6 +129,7 @@ void draw_map(game_state_t* state) {
   }
   printf("\n");
   printf("Points: %d\n",state->snakes[0].points);
+  printf("Cas: %d\n", time(NULL) - state->snakes[0].time_start);
 }
 void* recv_loop(void* arg) {
   client_t* client = (client_t*)arg;
