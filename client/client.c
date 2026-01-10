@@ -85,7 +85,7 @@ int join_game() {
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(SERVER_PORT);
   server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-  
+  sleep(1); 
   // 3. pripoj sa na server
   if (connect(clientSocket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
     perror("connect");
@@ -129,7 +129,7 @@ void draw_map(game_state_t* state) {
   }
   printf("\n");
   printf("Points: %d\n",state->snakes[0].points);
-  printf("Cas: %d\n", time(NULL) - state->snakes[0].time_start);
+  printf("Cas: %ld\n", time(NULL) - state->snakes[0].time_start);
 }
 void* recv_loop(void* arg) {
   client_t* client = (client_t*)arg;
@@ -153,7 +153,7 @@ void* recv_loop(void* arg) {
       printf("Nie je zivi ziadny hradik, hra konci\n");
       break;
     } else {
-      draw_map(&state);
+      //draw_map(&state);
     }
   }
   pthread_mutex_lock(&client->mutex);
@@ -183,15 +183,7 @@ void run_game(int client_fd){
     }
     char key = getchar();
     send(client_fd,&key,sizeof(key),0);
-    /*if (key == 27) {
-      client_msg_t msg = {MSG_PAUSE};
-      send(client_fd,&msg,sizeof(msg),0);
-      return;
-    }else {
-      client_msg_t msg = {MSG_MOVE, key};
-      send(client->client_fd,&msg,1,0);
-    }*/
-    
+      
   }
   printf("Koniec klienta\n");
   pthread_mutex_destroy(&client->mutex);
@@ -220,7 +212,6 @@ int main() {
           return 1;
         }
         run_game(client);
-        show_pause_menu(client);
       break;
       case 2:
         printf("Pripojenie k hre\n");
@@ -240,24 +231,5 @@ int main() {
   }
 }
 
-void show_pause_menu(int client_fd) {
-  while (1) {
-    printf("1. Continue\n");
-    printf("2. Quit\n");
 
-    char c = getchar();
-
-    if (c == '1') {
-      client_msg_t msg = { MSG_RESUME };
-      send(client_fd, &msg, sizeof(msg), 0);
-      run_game(client_fd);
-    }
-    else if (c == '2') {
-      client_msg_t msg = { MSG_QUIT };
-      send(client_fd, &msg, sizeof(msg), 0);
-      close(client_fd);
-      return;
-    }
-  }
-}
 

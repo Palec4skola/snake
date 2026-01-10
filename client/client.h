@@ -12,4 +12,3 @@ typedef struct {
 } client_msg_t;
 
 void show_menu();
-void show_pause_menu(int client_fd);

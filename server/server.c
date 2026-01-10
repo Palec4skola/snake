@@ -49,8 +49,10 @@ int main(int argc, char * argv[]) {
 
   SHARED_DATA *data;
   data = malloc(sizeof(SHARED_DATA)); 
+  memset(data, 0, sizeof(SHARED_DATA));
   client_thread_arg_t *arg; 
   arg = malloc(sizeof(client_thread_arg_t));
+  memset(arg, 0, sizeof(client_thread_arg_t));
 
   data->game_state.active_players = 0;
   data->game_state.last_player_left = 0;
@@ -58,7 +60,7 @@ int main(int argc, char * argv[]) {
   arg->shared = data;
   arg->server_fd = server_fd;
   pthread_mutex_init(&data->players_mutex, NULL);
-  pthread_mutex_init(&data->clients_mutex, NULL);
+  //pthread_mutex_init(&data->clients_mutex, NULL);
   data->game = &game;
   pthread_create(&game_thread, NULL, game_loop, arg);
   pthread_detach(game_thread);  
@@ -98,21 +100,19 @@ int main(int argc, char * argv[]) {
     pthread_mutex_unlock(&data->players_mutex);
     pthread_create(&client_thread, NULL, client_loop, arg);
     pthread_detach(client_thread);
-    //free(arg);
     pthread_mutex_lock(&data->players_mutex);
     game_runs = data->isRunning;
     pthread_mutex_unlock(&data->players_mutex);
   }
+  printf("Freeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
   pthread_mutex_destroy(&data->players_mutex);
-  pthread_mutex_destroy(&data->clients_mutex);
-  printf("Koniec\n");
+  free(arg);
   free(data);
+  
 }
 
 void * client_loop(void* arg){
   client_thread_arg_t* data = (client_thread_arg_t*)arg;
- // SHARED_DATA *shared = data->shared;
-    //printf("arg CLIENT: %p\n", data);
   int player_id = data->shared->game_state.active_players-1;
   int client_fd = data->client_fd[player_id];
   char key;
@@ -169,7 +169,6 @@ void * game_loop(void* arg) {
       }
     }
     pthread_mutex_lock(&data->shared->players_mutex);
-    pthread_mutex_lock(&data->shared->clients_mutex);
     detect_collisions(data->shared);
     if (data->shared->game_state.snakes->state == PLAYER_ACTIVE) {
       update_snakes(data->shared);
@@ -181,7 +180,6 @@ void * game_loop(void* arg) {
       }
 
     }
-    pthread_mutex_unlock(&data->shared->clients_mutex);
     pthread_mutex_unlock(&data->shared->players_mutex);
 
     usleep(200000);
@@ -192,5 +190,6 @@ void * game_loop(void* arg) {
   pthread_mutex_unlock(&data->shared->players_mutex);
   shutdown(data->server_fd, SHUT_RDWR);
   close(data->server_fd);
+  printf("Koniec\n");
   return NULL;
 }
