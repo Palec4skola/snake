@@ -140,12 +140,8 @@ void* recv_loop(void* arg) {
   while (1) {
     int bytes = recv(client_fd, &state, sizeof(game_state_t), 0);
 
-    if (bytes == 0) {
+    if (bytes <= 0) {
       printf("Server ukončil spojenie\n");
-      break;
-    }
-    if (bytes < 0) {
-      perror("recv");
       break;
     }
 
@@ -153,7 +149,7 @@ void* recv_loop(void* arg) {
       printf("Nie je zivi ziadny hradik, hra konci\n");
       break;
     } else {
-      draw_map(&state);
+      //draw_map(&state);
     }
   }
   pthread_mutex_lock(&client->mutex);

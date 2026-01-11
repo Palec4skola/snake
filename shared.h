@@ -23,24 +23,16 @@ typedef struct {
   int x, y;
 } point_t;
 
-typedef enum {
-  PLAYER_ACTIVE,
-  PLAYER_PAUSED,
-  PLAYER_LEFT
-} player_state_t;
-
 typedef struct {
   point_t body[100];
   int length;
   char direction; 
   int alive;
-  player_state_t state;
   time_t time_start; 
   int points;
 } snake_t;
 
 typedef struct {
-  char map[MAP_H][MAP_W];
   snake_t snakes[MAX_PLAYERS];
   point_t fruit[MAX_PLAYERS];
   int active_players;
@@ -49,7 +41,6 @@ typedef struct {
 
 typedef struct {
   pthread_mutex_t players_mutex;
-  pthread_mutex_t clients_mutex;
   int isRunning;
 
   game_config_t *game;

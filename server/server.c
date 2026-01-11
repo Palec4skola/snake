@@ -45,7 +45,6 @@ int main(int argc, char * argv[]) {
   game.mode = atoi(argv[1]);
   game.time_limit = atoi(argv[2]);
   game.mode_obs = atoi(argv[3]);
-  printf("obs_mode: %d\n",game.mode_obs);
 
   SHARED_DATA *data;
   data = malloc(sizeof(SHARED_DATA)); 
@@ -84,7 +83,6 @@ int main(int argc, char * argv[]) {
     int newSocket;//caka, kym sa pripoji klient
     printf("Caka na klienta: %d\n",server_fd);
     newSocket = accept(server_fd, (struct sockaddr*)&newAddr,&addrSize);
-    printf("%d\n",newSocket);
     if (newSocket < 0) {
       break;
     }
@@ -124,10 +122,17 @@ void * client_loop(void* arg){
     n = recv(client_fd, &key, 1, 0);
     if ( n > 0) {
       if (key == 27) {
-        printf("Pauza\n");
+        pthread_mutex_lock(&data->shared->players_mutex);
+        data->shared->game_state.snakes[0].alive = 0;
+        printf("Hrac ukoncil hru klavesou esc\n");
+        data->shared->game_state.active_players--;
+        data->shared->game_state.last_player_left = time(NULL);
+        pthread_mutex_unlock(&data->shared->players_mutex);
+        break;
       } else if (key != 'w' && key != 'a' && key != 's' && key != 'd'){
         continue;
-      }      pthread_mutex_lock(&data->shared->players_mutex);
+      }      
+      pthread_mutex_lock(&data->shared->players_mutex);
       data->shared->game_state.snakes[player_id].direction = key;
       pthread_mutex_unlock(&data->shared->players_mutex);
 
@@ -169,9 +174,7 @@ void * game_loop(void* arg) {
     }
     pthread_mutex_lock(&data->shared->players_mutex);
     detect_collisions(data->shared);
-    if (data->shared->game_state.snakes->state == PLAYER_ACTIVE) {
-      update_snakes(data->shared);
-    } 
+    update_snakes(data->shared);
     generate_fruit(data->shared);
     for (int i = 0; i < data->shared->game_state.active_players; i++) {
       if (data->client_fd[i] > 0 && data->shared->game_state.active_players > 0) {
@@ -189,6 +192,5 @@ void * game_loop(void* arg) {
   pthread_mutex_unlock(&data->shared->players_mutex);
   shutdown(data->server_fd, SHUT_RDWR);
   close(data->server_fd);
-  printf("Koniec\n");
   return NULL;
 }

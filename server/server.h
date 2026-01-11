@@ -1,13 +1,6 @@
 #include <pthread.h>
 #include "../shared.h"
 
-typedef enum {
-  MSG_MOVE,
-  MSG_PAUSE,
-  MSG_RESUME,
-  MSG_QUIT
-} msg_type_t;
-
 void init_game_state(SHARED_DATA* data);
 
 void update_snakes(SHARED_DATA* data);

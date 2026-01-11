@@ -65,12 +65,6 @@ void generate_fruit(SHARED_DATA * data) {
   }
 }
 
-void init_game_state(SHARED_DATA* data) {
-  game_state_t * game = &data->game_state;
-
-  memset(game->map, ' ', sizeof(game->map));
-}
-
 void add_player(game_state_t* game) {
   game->active_players++;
   game->fruit[game->active_players-1].x = rand() % MAP_W;
