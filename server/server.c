@@ -104,7 +104,6 @@ int main(int argc, char * argv[]) {
     game_runs = data->isRunning;
     pthread_mutex_unlock(&data->players_mutex);
   }
-  printf("Freeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
   pthread_mutex_destroy(&data->players_mutex);
   free(arg);
   free(data);
