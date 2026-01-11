@@ -149,7 +149,7 @@ void* recv_loop(void* arg) {
       printf("Nie je zivi ziadny hradik, hra konci\n");
       break;
     } else {
-      //draw_map(&state);
+      draw_map(&state);
     }
   }
   pthread_mutex_lock(&client->mutex);
